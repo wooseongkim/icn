@@ -674,6 +674,7 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
         }
         else
         {
+#ifndef  _BASIC_ICN_
             Ipv4Address higherSocialTieNode =
                     m_relationship->GetHigherSocialTie(currentNode, encounterNode, it->contentProvider);
             if (higherSocialTieNode.IsEqual(encounterNode))
@@ -704,6 +705,13 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
                     }
                 }
             }
+#else
+	PktHeader *header = CreateInterestPacketHeaderKnownContentProvider(
+                                                it->requester, encounterNode, it->broadcastId, it->requestedContent, it->contentProvider);
+         SendPacket(*header);
+
+#endif
+
         }
     }
 }
@@ -749,8 +757,9 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
         NS_LOG_INFO("PendingInterestKnownContentProvider - requester: "<<it->requester);
         NS_LOG_INFO("PendingInterestKnownContentProvider - requestedContent: "<<it->requestedContent);
         NS_LOG_INFO("PendingInterestKnownContentProvider - broadcastId: "<<it->broadcastId);
-    
+ #ifndef  _BASIC_ICN_ 
         Ipv4Address higherSocialLevelNode = m_relationship->GetHigherSocialLevel(currentNode, encounterNode);
+
         if ( higherSocialLevelNode.IsEqual(encounterNode) )
         {
             if ( (it->lastRelayNode).IsEqual(Ipv4Address("0.0.0.0")) )
@@ -778,6 +787,12 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
                 }
             }
         }
+#else
+
+PktHeader *header = CreateInterestPacketHeaderUnknownContentProvider(
+						it->requester, encounterNode, it->broadcastId, it->requestedContent);
+SendPacket(*header);	
+#endif
     }
 }
 
@@ -935,6 +950,9 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
     
         if (currentNode.IsEqual(requestedContent)) //I am the content provider
         {
+            NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds () << "s node "<< GetNodeAddress() <<
+                 " Interest Received at Content Provider " << requestedContent);
+			
             if (encounterNode.IsEqual(requester))
             {
                 // Unicast DATA packet to encounter
