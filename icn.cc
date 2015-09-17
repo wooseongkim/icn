@@ -47,7 +47,7 @@ SocialNetwork::SocialNetwork ()
     m_pending_data = new vector<PendingDataEntry>;
     m_pending_interest_known_content_provider = new vector<PendingInterestEntryKnownContentProvider>;
     m_pending_interest_unknown_content_provider = new vector<PendingInterestEntryUnknownContentProvider>;
-    m_initialRequestedContent->push_back(Ipv4Address("0.0.0.0"));
+    m_initialRequestedContent.push_back(Ipv4Address("0.0.0.0"));
     m_firstSuccess = false;
 }
 
@@ -90,7 +90,7 @@ SocialNetwork::RequestContent (Ipv4Address content)
 {
     //m_initialRequestedContent = content;
     //wkim
-	m_initialRequestedContent->push_back(content);
+	m_initialRequestedContent.push_back(content);
 }
 
 
@@ -129,17 +129,17 @@ SocialNetwork::StartApplication (void)
     
     //insert the initial requested content into m_pending_interest_response
     //wkim
-     for (vector<Ipv4Address>::iterator it = m_initialRequestedContent->begin();
-             it != m_initialRequestedContent->end(); ++it)
+     for (vector<Ipv4Address>::iterator it = m_initialRequestedContent.begin();
+             it != m_initialRequestedContent.end(); ++it)
         {
 	   //if ( !( m_initialRequestedContent.IsEqual(Ipv4Address("0.0.0.0"))) )
-	    if ( !( it.IsEqual(Ipv4Address("0.0.0.0"))) )
+	    if ( !( it->IsEqual(Ipv4Address("0.0.0.0"))) )
 	    {
-	        NS_LOG_INFO(""<<thisNodeAddress<<" requests content: "<<it);
+	        //NS_LOG_INFO(""<<thisNodeAddress<<" requests content: "<<it);
 	        PendingInterestEntryUnknownContentProvider entry;
 	        entry.requester = thisNodeAddress;
 	        entry.broadcastId = m_interestBroadcastId;
-	        entry.requestedContent = it;
+	        entry.requestedContent = *it;
 	        m_pending_interest_unknown_content_provider->push_back(entry);
 	        
 	        m_interestBroadcastId++;
@@ -160,7 +160,7 @@ SocialNetwork::StartApplication (void)
 
     m_socket->SetRecvCallback (MakeCallback (&SocialNetwork::HandleRead, this));
     
-    ScheduleTransmitHelloPackets(2000);
+    ScheduleTransmitHelloPackets(1000);
 }
 
 
@@ -244,6 +244,7 @@ SocialNetwork::CreateDataPacketHeader(Ipv4Address requester,
     
     return header;
 }
+
 
 PktHeader *
 SocialNetwork::CreateInterestPacketHeaderUnknownContentProvider(Ipv4Address requester,
@@ -477,10 +478,10 @@ SocialNetwork::HandleData(PktHeader *header)
     NS_LOG_INFO("Interest packet - requestedContent: "<<requestedContent);
     NS_LOG_INFO("Interest packet - broadcastId: "<<broadcastId);
 	//wkim
-    for (vector<Ipv4Address>::iterator it = m_initialRequestedContent->begin();
-             it != m_initialRequestedContent->end(); ++it)
+    for (vector<Ipv4Address>::iterator it = m_initialRequestedContent.begin();
+             it != m_initialRequestedContent.end(); ++it)
    {
-	    if ( it.IsEqual(requestedContent ) )
+	    if ( it->IsEqual(requestedContent ) )
 	    {
 	        if (m_firstSuccess == false)
 	        {
@@ -759,7 +760,6 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
         NS_LOG_INFO("PendingInterestKnownContentProvider - broadcastId: "<<it->broadcastId);
  #ifndef  _BASIC_ICN_ 
         Ipv4Address higherSocialLevelNode = m_relationship->GetHigherSocialLevel(currentNode, encounterNode);
-
         if ( higherSocialLevelNode.IsEqual(encounterNode) )
         {
             if ( (it->lastRelayNode).IsEqual(Ipv4Address("0.0.0.0")) )
@@ -795,6 +795,7 @@ SendPacket(*header);
 #endif
     }
 }
+
 
 void
 SocialNetwork::ProcessPendingData(PktHeader *header)
