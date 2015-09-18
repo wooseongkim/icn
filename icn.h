@@ -13,6 +13,8 @@
 #include "ns3/relationship.h"
 #include "ns3/interest-manager.h"
 
+#include "ns3/vector.h"
+
 using namespace std;
 
 namespace ns3 {
@@ -87,7 +89,9 @@ private:
     void SendHello ();
     void SendPacket(PktHeader header);
    //wkim
-   SocialNetwork::SendPacket(PktHeader header, uint32_t size );
+   void SendPacket(PktHeader header, uint32_t size );
+   //Vector getCurrentPosition();
+
     void ScheduleTransmitHelloPackets (int numberOfHelloEvents);
     Ipv4Address GetNodeAddress(void);
     
@@ -146,7 +150,6 @@ private:
     vector<PendingInterestEntryKnownContentProvider> *m_pending_interest_known_content_provider;
     vector<PendingInterestEntryUnknownContentProvider> *m_pending_interest_unknown_content_provider;
     vector<PendingDataEntry> *m_pending_data;
-
     
     
     bool m_firstSuccess; //for accounting purpose
