@@ -1,4 +1,3 @@
-
 // WRITE TO LOG FILE
 // ./waf --run "scratch/mobTop24 --nodeNum=24 --traceFile=scratch/sc-24nodes.tcl" > log.out 2>&1
 
@@ -256,7 +255,8 @@ Ipv4Address broadcastAddr = Ipv4Address("255.255.255.255");
     header->SetSource(GetNodeAddress());
 #ifdef _BASIC_ICN_
 	header->SetDestination(broadcastAddr);
-#else
+#endif
+#ifdef _SOCIAL_DTN_
 	header->SetDestination(destination);
 #endif
 
@@ -284,7 +284,9 @@ Ipv4Address broadcastAddr = Ipv4Address("255.255.255.255");
     header->SetSource(GetNodeAddress());
 #ifdef _BASIC_ICN_
 	header->SetDestination(broadcastAddr);
-#else
+#endif
+#ifdef _SOCIAL_DTN_
+
 	header->SetDestination(destination);
 #endif
 
@@ -418,7 +420,7 @@ SocialNetwork::HandleRead (Ptr<Socket> socket)
                 HandleInterestKnownContentProvider(header);
                 break;
 	//wkim
-#ifdef GEOSOCIAL
+#ifdef _GEO_SOCIAL_
 	  case InterestKnownCPGeoRoute:
                 NS_LOG_INFO ("Receive message type: InterestKnownCPGeoRoute");
                 HandleInterestKnownCPGeoRoute(header);
@@ -546,9 +548,9 @@ SocialNetwork::HandleDigest(PktHeader *header)
         PrintAllContent(contentArray, contentArraySize);
         NS_LOG_INFO("This node content before merge: ");
         PrintAllContent(m_contentManager->GetContentArray(), m_contentManager->GetContentArraySize());
-        
-        m_contentManager->Merge(contentArray, contentArraySize);
-                    
+        //wkim
+        //m_contentManager->Merge(contentArray, contentArraySize);
+         m_contentManager->Merge(contentArray, contentArraySize, getCurrentPosition());
         NS_LOG_INFO("This node content after merge: ");
         PrintAllContent(m_contentManager->GetContentArray(), m_contentManager->GetContentArraySize());
     }
@@ -675,7 +677,7 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
         }
         else
         {
-#ifndef  _BASIC_ICN_
+#ifndef  _SOCIAL_DTN_
             Ipv4Address higherSocialTieNode =
                     m_relationship->GetHigherSocialTie(currentNode, encounterNode, it->contentProvider);
             if (higherSocialTieNode.IsEqual(encounterNode))
@@ -706,7 +708,9 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
                     }
                 }
             }
-#else
+#endif
+#ifdef  _BASIC_ICN_
+
 	PktHeader *header = CreateInterestPacketHeaderKnownContentProvider(
                                                 it->requester, encounterNode, it->broadcastId, it->requestedContent, it->contentProvider);
          SendPacket(*header);
@@ -758,7 +762,7 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
         NS_LOG_INFO("PendingInterestKnownContentProvider - requester: "<<it->requester);
         NS_LOG_INFO("PendingInterestKnownContentProvider - requestedContent: "<<it->requestedContent);
         NS_LOG_INFO("PendingInterestKnownContentProvider - broadcastId: "<<it->broadcastId);
- #ifndef  _BASIC_ICN_ 
+ #ifdef  _SOCIAL_DTN_ 
         Ipv4Address higherSocialLevelNode = m_relationship->GetHigherSocialLevel(currentNode, encounterNode);
         if ( higherSocialLevelNode.IsEqual(encounterNode) )
         {
@@ -787,7 +791,9 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
                 }
             }
         }
-#else
+#endif
+
+#ifdef _BASIC_ICN_
 
 PktHeader *header = CreateInterestPacketHeaderUnknownContentProvider(
 						it->requester, encounterNode, it->broadcastId, it->requestedContent);
@@ -924,13 +930,13 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
     
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
-    
+ #ifdef _SOCIAL_DTN_
     if ( !currentNode.IsEqual(header->GetDestination()) )
     {
         //I am not the node this Interest packet is destined to
         return;
     }
-
+#endif
     Ipv4Address requester = header->GetRequesterId();    
     Ipv4Address requestedContent = header->GetRequestedContent();
     Ipv4Address contentProvider = header->GetContentProviderId();
@@ -1003,7 +1009,6 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
             - broadcastid
             - requested content
             - packet type
-
         Please see function: CreateInterestPacketHeaderUnknownContentProvider
     */
 
@@ -1030,13 +1035,13 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
     
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
-    
+ #ifdef _SOCIAL_DTN_
     if ( !currentNode.IsEqual(header->GetDestination()) )
     {
         //I am not the node this Interest packet is destined to
         return;
     }
-
+#endif
     Ipv4Address requester = header->GetRequesterId();    
     Ipv4Address requestedContent = header->GetRequestedContent();
     uint32_t broadcastId = header->GetInterestBroadcastId();
@@ -1080,7 +1085,17 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
                 entry.broadcastId = broadcastId;
                 entry.requestedContent = requestedContent;
                 entry.contentProvider = requestedContent;
+#ifdef _SOCIAL_DTN_
                 m_pending_interest_known_content_provider->push_back(entry);
+#endif
+#ifdef _GEO_SOCIAL_
+	Vector3D pos;
+	pos = m_contentManager->GetContentPos(Ipv4Address content)
+
+	SendInterestKnownCPGeoRoute( requester, Vector3D pos,  broadcastId,  requestedContent, requestedContent);
+
+#endif
+
                 NS_LOG_INFO("Save pending InterestKnownContentProvider entry into m_pending_interest_known_content_provider");
             }
             else // I do not know who has the content
@@ -1105,22 +1120,27 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
     
 
 }
-//wkim: geo-routing
-#ifdef GEOSOCIAL
-void
+
+Vector3D
 SocialNetwork:: getCurrentPosition ()
 {
 	Ptr<Node> node = GetNode();
 	Ptr<MobilityModel> mobModel = node->GetObject<MobilityModel> ();
 	Vector3D pos = mobModel->GetPosition ();
-	Vector3D speed = mobModel->GetVelocity ();
+	return pos;
+	
 /*	
+	Vector3D speed = mobModel->GetVelocity ();
   	std::cout << "At " << Simulator::Now ().GetSeconds () << " node " << nodeId
             << ": Position(" << pos.x << ", " << pos.y << ", " << pos.z
             << ");   Speed(" << speed.x << ", " << speed.y << ", " << speed.z
             << ")" << std::endl;
 */
 }
+
+//wkim: geo-routing
+#ifdef _GEO_SOCIAL_
+
 
 double
 SocialNetwork:: getUCDistance (Ptr<Node> destNode)
@@ -1150,7 +1170,10 @@ SocialNetwork:: getUCDistance (Ptr<Node> destNode)
     	header->SetInterestBroadcastId(broadcastId);
     	header->SetPacketType(InterestKnownCPGeoRoute);
    	 header->SetContentProviderId(contentProvider);
-	 
+
+	 //wkim; new geo-info add
+	 header->SetDestGeoPos(pos);
+	 //think later about data fwd using src pos
            SendPacket(*header);
            //NS_LOG_INFO("Send InterestKnownContentProvider (requestedContent is: "<< requestedContent<<") to "<<requester);
  }
