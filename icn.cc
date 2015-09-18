@@ -23,6 +23,10 @@
 #include "ns3/ipv4-header.h"
 #include "ns3/ipv4.h"
 
+//#define _SOCIAL_DTN_
+#define _BASIC_ICN_
+//#define _GEO_SOCIAL_
+
 using namespace std;
 
 namespace ns3 {
@@ -677,7 +681,7 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
         }
         else
         {
-#ifndef  _SOCIAL_DTN_
+#ifdef  _SOCIAL_DTN_
             Ipv4Address higherSocialTieNode =
                     m_relationship->GetHigherSocialTie(currentNode, encounterNode, it->contentProvider);
             if (higherSocialTieNode.IsEqual(encounterNode))
