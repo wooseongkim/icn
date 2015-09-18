@@ -1,7 +1,3 @@
-// WRITE TO LOG FILE
-// ./waf --run "scratch/mobTop24 --nodeNum=24 --traceFile=scratch/sc-24nodes.tcl" > log.out 2>&1
-
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 #include "ns3/social-network.h"
 #include "ns3/log.h"
@@ -27,6 +23,9 @@
 //#define _SOCIAL_DTN_
 #define _BASIC_ICN_
 //#define _GEO_SOCIAL_
+
+#define DBGLEV_3
+#define DBGLEV_4
 
 using namespace std;
 
@@ -201,9 +200,11 @@ SocialNetwork::SendHello ()
 {
     PktHeader *header = CreateHelloPacketHeader();
     SendPacket(*header);
+#ifdef DBGLEV_0	
     NS_LOG_INFO("");
     NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds () << "s node "<< GetNodeAddress() <<
                  " broadcasts HELLO on port " << m_peerPort);
+#endif	
 }
 
 
@@ -393,35 +394,45 @@ SocialNetwork::HandleRead (Ptr<Socket> socket)
         packet->PeekHeader(*header); //read the header from the packet.
 
         PacketType packetType = header->GetPacketType();
-
+#ifdef DBGLEV_3
         NS_LOG_INFO ("This node: " << thisIpv4Address );
         NS_LOG_INFO ("Encounter node: "<< InetSocketAddress::ConvertFrom (from).GetIpv4 () );
         NS_LOG_INFO ("Encounter time: " << Simulator::Now ().GetSeconds () );
-
+#endif
         switch (packetType)
         {
             case HELLO:
+#ifdef DBGLEV_3
                 NS_LOG_INFO ("Receive message type: HELLO");
+#endif
                 HandleHello(header);
                 break;
 
             case DATA:
+#ifdef DBGLEV_3				
                 NS_LOG_INFO ("Receive message type: DATA");
+#endif
                 HandleData(header);
                 break;
 
             case DIGEST:
+#ifdef DBGLEV_3				
                 NS_LOG_INFO ("Receive message type: DIGEST");
+#endif
                 HandleDigest(header);
                 break;
 
             case InterestUnknownContentProvider:
+#ifdef DBGLEV_3				
                 NS_LOG_INFO ("Receive message type: InterestUnknownContentProvider");
+#endif
                 HandleInterestUnknownContentProvider(header);
                 break;
 
             case InterestKnownContentProvider:
+#ifdef DBGLEV_3				
                 NS_LOG_INFO ("Receive message type: InterestKnownContentProvider");
+#endif
                 HandleInterestKnownContentProvider(header);
                 break;
     //wkim
@@ -449,7 +460,6 @@ SocialNetwork::HandleData(PktHeader *header)
             - requester
             - broadcastId
             - requestedContent
-
         Please see function: CreateDataPacketHeader
     */
 
@@ -465,9 +475,9 @@ SocialNetwork::HandleData(PktHeader *header)
                 Turn into DATA social tie routing by saving
                 (requester, broadcastId, requestedContent) into m_pending_data
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside HandleData");
-
+#endif
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
 
@@ -480,10 +490,11 @@ SocialNetwork::HandleData(PktHeader *header)
     Ipv4Address requester = header->GetRequesterId();
     Ipv4Address requestedContent = header->GetRequestedContent();
     uint32_t broadcastId = header->GetInterestBroadcastId();
-
+#ifdef DBGLEV_0
     NS_LOG_INFO("Data packet - requester: "<<requester);
     NS_LOG_INFO("Interest packet - requestedContent: "<<requestedContent);
     NS_LOG_INFO("Interest packet - broadcastId: "<<broadcastId);
+#endif
     //wkim
     for (vector<Ipv4Address>::iterator it = m_initialRequestedContent.begin();
              it != m_initialRequestedContent.end(); ++it)
@@ -499,9 +510,10 @@ SocialNetwork::HandleData(PktHeader *header)
             {
                 NS_LOG_INFO ("SUCCESS SECOND");
             }
-
+#ifdef DBGLEV_2   
             NS_LOG_INFO ("Time now " << Simulator::Now ().GetSeconds ());
             NS_LOG_INFO ("Requester node "<<currentNode<<" receives requested content "<<requestedContent<< " from node "<<encounterNode);
+#endif			
         }
         else
         {
@@ -511,7 +523,9 @@ SocialNetwork::HandleData(PktHeader *header)
                 //Each PendingDataEntry is uniquely identified by <requester, broadcastId>
                 if ( requester.IsEqual(it->requester) &&  broadcastId == it->broadcastId )
                 {
+ #ifdef DBGLEV_0          
                     NS_LOG_INFO("Pending DATA entry already exists");
+ #endif
                     return;
                 }
             }
@@ -521,7 +535,9 @@ SocialNetwork::HandleData(PktHeader *header)
             entry.broadcastId = broadcastId;
             entry.requestedContent = requestedContent;
             m_pending_data->push_back(entry);
+   #ifdef DBGLEV_0			
             NS_LOG_INFO("Save pending DATA entry into m_pending_data");
+   #endif
         }
       }
 }
@@ -537,22 +553,23 @@ SocialNetwork::HandleDigest(PktHeader *header)
             - packet type
             - content array
             - contenet array size
-
         Please see function: CreateDigestPacketHeader
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside HandleDigest");
+#endif
     Ipv4Address currentNode = GetNodeAddress();
 
     if ( currentNode.IsEqual(header->GetDestination()) ) { //I am the destination of this digest packet?
         uint32_t contentArraySize = header->GetContentArraySize();
         Ipv4Address *contentArray = header->GetContentArray();
-
+#ifdef DBGLEV_0
         NS_LOG_INFO("Encounter node - content array size: "<<contentArraySize);
         NS_LOG_INFO("Encounter node - content: ");
         PrintAllContent(contentArray, contentArraySize);
         NS_LOG_INFO("This node content before merge: ");
         PrintAllContent(m_contentManager->GetContentArray(), m_contentManager->GetContentArraySize());
+#endif
         //wkim
         //m_contentManager->Merge(contentArray, contentArraySize);
         Ptr<Node> cnode = GetNode();
@@ -560,7 +577,9 @@ SocialNetwork::HandleDigest(PktHeader *header)
         Vector pos = mobModel->GetPosition ();
 
          m_contentManager->Merge(contentArray, contentArraySize, pos);
+#ifdef DBGLEV_0
         NS_LOG_INFO("This node content after merge: ");
+#endif
         PrintAllContent(m_contentManager->GetContentArray(), m_contentManager->GetContentArraySize());
     }
 }
@@ -576,11 +595,11 @@ SocialNetwork::HandleHello(PktHeader *header)
             - packet type
             - social tie table
             - social tie table size
-
         Please see function: CreateHelloPacketHeader
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside HandleHello");
+#endif
     Ipv4Address encounterNode = header->GetSource();
 
     SocialTableEntry *socialTieTableEntry = (SocialTableEntry *) (header->GetSocialTieTable());
@@ -623,7 +642,9 @@ SocialNetwork::DecideWhetherToSendContentNameDigest(PktHeader *header)
     if (higherCentralityNode.IsEqual(encounterNode))
     {
         //Unicast content name digest packet to encounter node
+  #ifdef DBGLEV_3	
         NS_LOG_INFO(""<<currentNode<<" sends content name digest to node "<<encounterNode);
+  #endif
         PktHeader *header = CreateDigestPacketHeader(encounterNode);
         SendPacket(*header);
     }
@@ -640,7 +661,6 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
             - packet type
             - social tie table (not used here)
             - social tie table size (not used here)
-
         Please see function: CreateHelloPacketHeader
     */
 
@@ -659,21 +679,24 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
                         Unicast InterestKnownContentProvider packet to encounter
                         Update last_relay_encounter to encounter
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside ProcessPendingInterestKnownContentProvider");
-
+#endif
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
-
+#ifdef DBGLEV_0
     NS_LOG_INFO("m_pending_interest_known_content_provider size: "<<m_pending_interest_known_content_provider->size());
+#endif
     for (vector<PendingInterestEntryKnownContentProvider>::iterator it = m_pending_interest_known_content_provider->begin();
          it != m_pending_interest_known_content_provider->end(); ++it)
     {
+ #ifdef DBGLEV_0
         NS_LOG_INFO("PendingInterestKnownContentProvider - lastRelayNode: "<<it->lastRelayNode);
         NS_LOG_INFO("PendingInterestKnownContentProvider - requester: "<<it->requester);
         NS_LOG_INFO("PendingInterestKnownContentProvider - requestedContent: "<<it->requestedContent);
         NS_LOG_INFO("PendingInterestKnownContentProvider - contentProvider: "<<it->contentProvider);
         NS_LOG_INFO("PendingInterestKnownContentProvider - broadcastId: "<<it->broadcastId);
+#endif
         NS_ASSERT_MSG(it->requestedContent.IsEqual(it->contentProvider),"ERROR: requestedContent does not match contentProvider");
 
         if ( (it->contentProvider).IsEqual(encounterNode) ) //encounter node is the content provider
@@ -682,7 +705,9 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
             PktHeader *header = CreateInterestPacketHeaderKnownContentProvider(
                                     it->requester, encounterNode, it->broadcastId, it->requestedContent, it->contentProvider);
             SendPacket(*header);
+ #ifdef DBGLEV_3				
             NS_LOG_INFO("Send InterestKnownContentProvider (requestedContent is: "<<it->requestedContent<<") to "<<encounterNode);
+ #endif
         }
         else
         {
@@ -699,7 +724,9 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
                     PktHeader *header = CreateInterestPacketHeaderKnownContentProvider(
                                             it->requester, encounterNode, it->broadcastId, it->requestedContent, it->contentProvider);
                     SendPacket(*header);
+ #ifdef DBGLEV_3						
                     NS_LOG_INFO("Send InterestKnownContentProvider (requestedContent is: "<<it->requestedContent<<") to "<<encounterNode);
+ #endif
                 }
                 else
                 {
@@ -713,7 +740,9 @@ SocialNetwork::ProcessPendingInterestKnownContentProvider(PktHeader *header)
                         PktHeader *header = CreateInterestPacketHeaderKnownContentProvider(
                                                 it->requester, encounterNode, it->broadcastId, it->requestedContent, it->contentProvider);
                         SendPacket(*header);
+ #ifdef DBGLEV_3							
                         NS_LOG_INFO("Send InterestKnownContentProvider (requestedContent is: "<<it->requestedContent<<") to "<<encounterNode);
+ #endif
                     }
                 }
             }
@@ -741,7 +770,6 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
             - packet type
             - social tie table (not used here)
             - social tie table size (not used here)
-
         Please see function: CreateHelloPacketHeader
     */
 
@@ -757,20 +785,24 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
                     Unicast InterestUnknownContentProvider packet to encounter
                     Update last_relay_encounter to encounter
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside ProcessPendingInterestUnknownContentProvider");
-
+#endif
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
-
+#ifdef DBGLEV_0
     NS_LOG_INFO("m_pending_interest_unknown_content_provider size: "<<m_pending_interest_unknown_content_provider->size());
+#endif
     for (vector<PendingInterestEntryUnknownContentProvider>::iterator it = m_pending_interest_unknown_content_provider->begin();
          it != m_pending_interest_unknown_content_provider->end(); ++it)
     {
+ #ifdef DBGLEV_0
         NS_LOG_INFO("PendingInterestKnownContentProvider - lastRelayNode: "<<it->lastRelayNode);
         NS_LOG_INFO("PendingInterestKnownContentProvider - requester: "<<it->requester);
         NS_LOG_INFO("PendingInterestKnownContentProvider - requestedContent: "<<it->requestedContent);
         NS_LOG_INFO("PendingInterestKnownContentProvider - broadcastId: "<<it->broadcastId);
+#endif
+
  #ifdef  _SOCIAL_DTN_
         Ipv4Address higherSocialLevelNode = m_relationship->GetHigherSocialLevel(currentNode, encounterNode);
         if ( higherSocialLevelNode.IsEqual(encounterNode) )
@@ -783,7 +815,9 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
                 PktHeader *header = CreateInterestPacketHeaderUnknownContentProvider(
                                         it->requester, encounterNode, it->broadcastId, it->requestedContent);
                 SendPacket(*header);
+ #ifdef DBGLEV_3					
                 NS_LOG_INFO("Send InterestUnknownContentProvider (requestedContent is: "<<it->requestedContent<<") to "<<encounterNode);
+ #endif
             }
             else
             {
@@ -796,7 +830,9 @@ SocialNetwork::ProcessPendingInterestUnknownContentProvider(PktHeader *header)
                     PktHeader *header = CreateInterestPacketHeaderUnknownContentProvider(
                                             it->requester, encounterNode, it->broadcastId, it->requestedContent);
                     SendPacket(*header);
+ #ifdef DBGLEV_3					
                     NS_LOG_INFO("Send InterestUnknownContentProvider (requestedContent is: "<<it->requestedContent<<") to "<<encounterNode);
+ #endif
                 }
             }
         }
@@ -822,7 +858,6 @@ SocialNetwork::ProcessPendingData(PktHeader *header)
             - packet type
             - social tie table (not used here)
             - social tie table size (not used here)
-
         Please see function: CreateHelloPacketHeader
     */
 
@@ -842,14 +877,14 @@ SocialNetwork::ProcessPendingData(PktHeader *header)
                         Unicast DATA packet to encounter
                         Update last_relay_encounter to encounter
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside ProcessPendingData");
-
+#endif
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
-
+#ifdef DBGLEV_0
     NS_LOG_INFO("m_pending_data size: "<<m_pending_data->size());
-
+#endif
     // We never remove pending entry even after we already sent it since later
     // we might encounter a node that has a stronger social tie toward requester
     // than the last encounter node, and thus we will send out DATA again.
@@ -857,17 +892,20 @@ SocialNetwork::ProcessPendingData(PktHeader *header)
     for (vector<PendingDataEntry>::iterator it = m_pending_data->begin();
          it != m_pending_data->end(); ++it)
     {
+ #ifdef DBGLEV_0
         NS_LOG_INFO("PendingData - lastRelayNode: "<<it->lastRelayNode);
         NS_LOG_INFO("PendingData - requester: "<<it->requester);
         NS_LOG_INFO("PendingData - requestedContent: "<<it->requestedContent);
         NS_LOG_INFO("PendingData - broadcastId: "<<it->broadcastId);
-
+#endif
         if ( (it->requester).IsEqual(encounterNode) ) //encounter is the requester
         {
             // Unicast DATA packet to encounter
             PktHeader *header = CreateDataPacketHeader(it->requester, encounterNode, it->broadcastId, it->requestedContent);
             SendPacket(*header);
+#ifdef DBGLEV_3			
             NS_LOG_INFO("Send DATA packet with content ("<< it->requestedContent <<") to "<<encounterNode);
+#endif
         }
         else // Use social-tie routing to propagate DATA packet
         {
@@ -882,7 +920,9 @@ SocialNetwork::ProcessPendingData(PktHeader *header)
                     // Unicast DATA packet to encounter
                     PktHeader *header = CreateDataPacketHeader(it->requester, encounterNode, it->broadcastId, it->requestedContent);
                     SendPacket(*header);
+#ifdef DBGLEV_3					
                     NS_LOG_INFO("Send DATA packet with content ("<< it->requestedContent <<") to "<<encounterNode);
+#endif
                 }
                 else
                 {
@@ -895,7 +935,9 @@ SocialNetwork::ProcessPendingData(PktHeader *header)
                         // Unicast DATA packet to encounter
                         PktHeader *header = CreateDataPacketHeader(it->requester, encounterNode, it->broadcastId, it->requestedContent);
                         SendPacket(*header);
+#ifdef DBGLEV_3
                         NS_LOG_INFO("Send DATA packet with content ("<< it->requestedContent <<") to "<<encounterNode);
+#endif
                     }
                 }
             }
@@ -916,7 +958,6 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
             - requested content
             - content provider
             - packet type
-
         Please see function: CreateInterestPacketHeaderKnownContentProvider
     */
 
@@ -934,9 +975,9 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
                 Turn into InterestKnownContentProvider social-tie routing by saving
                 (requester, broadcastId, requestedContent, contentProvider) into m_pending_interest_known_content_provider
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside HandleInterestKnownContentProvider");
-
+#endif
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
  #ifdef _SOCIAL_DTN_
@@ -950,11 +991,12 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
     Ipv4Address requestedContent = header->GetRequestedContent();
     Ipv4Address contentProvider = header->GetContentProviderId();
     uint32_t broadcastId = header->GetInterestBroadcastId();
+#ifdef DBGLEV_0
     NS_LOG_INFO("Interest packet - requester: "<<requester);
     NS_LOG_INFO("Interest packet - requestedContent: "<<requestedContent);
     NS_LOG_INFO("Interest packet - contentProvider: "<<contentProvider);
     NS_LOG_INFO("Interest packet - broadcastId: "<<broadcastId);
-
+#endif
     NS_ASSERT_MSG(requestedContent.IsEqual(contentProvider),"ERROR: requestedContent does not match contentProvider");
 
     InterestEntry interestEntry(requester, broadcastId, requestedContent);
@@ -966,15 +1008,18 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
 
         if (currentNode.IsEqual(requestedContent)) //I am the content provider
         {
+ #ifdef DBGLEV_4
             NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds () << "s node "<< GetNodeAddress() <<
                  " Interest Received at Content Provider " << requestedContent);
-
+#endif
             if (encounterNode.IsEqual(requester))
             {
                 // Unicast DATA packet to encounter
                 PktHeader *header = CreateDataPacketHeader(requester, encounterNode, broadcastId, requestedContent);
                 SendPacket(*header);
+#ifdef DBGLEV_3
                 NS_LOG_INFO("Send DATA packet with content ("<< requestedContent <<") to "<<encounterNode);
+#endif
             }
             else
             {
@@ -983,7 +1028,9 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
                 entry.broadcastId = broadcastId;
                 entry.requestedContent = requestedContent;
                 m_pending_data->push_back(entry);
+#ifdef DBGLEV_1
                 NS_LOG_INFO("Save pending DATA entry into m_pending_data");
+#endif
             }
         }
         else // I do not have the content, so I am a relay node to a known content provider
@@ -994,7 +1041,9 @@ SocialNetwork::HandleInterestKnownContentProvider(PktHeader *header)
             entry.requestedContent = requestedContent;
             entry.contentProvider = contentProvider;
             m_pending_interest_known_content_provider->push_back(entry);
+#ifdef DBGLEV_1
             NS_LOG_INFO("Save pending InterestKnownContentProvider entry into m_pending_interest_known_content_provider");
+#endif
         }
     }
     else
@@ -1039,9 +1088,9 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
                     Turn into InterestUnknownContentProvider social-level routing by saving
                     (requesterId, broadcastId, requestedContent) into m_pending_interest_unknown_content_provider
     */
-
+#ifdef DBGLEV_2
     NS_LOG_INFO("Inside HandleInterestUnknownContentProvider");
-
+#endif
     Ipv4Address currentNode = GetNodeAddress();
     Ipv4Address encounterNode = header->GetSource();
  #ifdef _SOCIAL_DTN_
@@ -1054,10 +1103,11 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
     Ipv4Address requester = header->GetRequesterId();
     Ipv4Address requestedContent = header->GetRequestedContent();
     uint32_t broadcastId = header->GetInterestBroadcastId();
+#ifdef DBGLEV_0
     NS_LOG_INFO("Interest packet - requester: "<<requester);
     NS_LOG_INFO("Interest packet - requestedContent: "<<requestedContent);
     NS_LOG_INFO("Interest packet - broadcastId: "<<broadcastId);
-
+#endif
     InterestEntry interestEntry(requester, broadcastId, requestedContent);
 
     if (! (m_interestManager->Exist(interestEntry)) )
@@ -1072,7 +1122,9 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
                 // Unitcast DATA packet to encounter
                 PktHeader *header = CreateDataPacketHeader(requester, encounterNode, broadcastId, requestedContent);
                 SendPacket(*header);
+#ifdef DBGLEV_3
                 NS_LOG_INFO("Send DATA packet with content ("<< requestedContent <<") to "<<encounterNode);
+#endif
             }
             else
             {
@@ -1081,7 +1133,9 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
                 entry.broadcastId = broadcastId;
                 entry.requestedContent = requestedContent;
                 m_pending_data->push_back(entry);
+#ifdef DBGLEV_1
                 NS_LOG_INFO("Save pending DATA entry into m_pending_data");
+#endif
             }
         }
         else // I do not have the content
@@ -1105,7 +1159,9 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
 
 #endif
 
+#ifdef DBGLEV_1
                 NS_LOG_INFO("Save pending InterestKnownContentProvider entry into m_pending_interest_known_content_provider");
+#endif
             }
             else // I do not know who has the content
             {
@@ -1114,7 +1170,9 @@ SocialNetwork::HandleInterestUnknownContentProvider(PktHeader *header)
                 entry.broadcastId = broadcastId;
                 entry.requestedContent = requestedContent;
                 m_pending_interest_unknown_content_provider->push_back(entry);
+#ifdef DBGLEV_1				
                 NS_LOG_INFO("Save pending InterestUnknownContentProvider entry into m_pending_interest_unknown_content_provider");
+#endif
             }
         }
     }
@@ -1136,7 +1194,6 @@ Vector SocialNetwork::getCurrentPosition ()
     Ptr<MobilityModel> mobModel = node->GetObject<MobilityModel> ();
     Vector pos = mobModel->GetPosition ();
     return pos;
-
 /*
     Vector speed = mobModel->GetVelocity ();
     std::cout << "At " << Simulator::Now ().GetSeconds () << " node " << nodeId
@@ -1251,4 +1308,7 @@ SocialNetwork:: getUCDistance (Ptr<Node> destNode)
 
  }
 #endif
+
+Status API Training Shop Blog About Pricing
+ⓒ 2015 GitHub, Inc. Terms Privacy Security Contact Help
 
